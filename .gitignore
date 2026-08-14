@@ -1,0 +1,20 @@
+## Visual Studio
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.sln.docstates
+*.userbuild
+
+## Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+build_verify/
+*.pdb
+
+## OS generated files
+.DS_Store
+Thumbs.db
