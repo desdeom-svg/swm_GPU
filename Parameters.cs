@@ -212,6 +212,21 @@ namespace SWM
            IndexRef1 = 0;
            IndexRef2 = 0;
 
+            int rowImageCount = tt.ScanPlan.Slices[IndexSlice].Scans.Count;
+            if (TryGetOfflineRowReferences(
+                    IndexScan,
+                    rowImageCount,
+                    modeSetting.ScanSequence[IndexSlice].Repeat,
+                    out int rowReference1,
+                    out int rowReference2) &&
+                !tt.ScanPlan.Slices[IndexSlice].Scans[rowReference1].ScanVirDie &&
+                !tt.ScanPlan.Slices[IndexSlice].Scans[rowReference2].ScanVirDie)
+            {
+                IndexRef1 = rowReference1 + ImageIndexWafer;
+                IndexRef2 = rowReference2 + ImageIndexWafer;
+                return 1;
+            }
+
             //一行不足3个die，且当前图片Y和X对齐规划
             if (tt.ScanPlan.Slices[IndexSlice].Scans.Count <= 2 * modeSetting.ScanSequence[0].Repeat)
             {
@@ -248,7 +263,7 @@ namespace SWM
 
                     if (IndexRef1 == 0 && IndexRef2 == 0) return -11;
                 }
-                else return -12;
+            else return -12;
             }
 
             //一行只有3个die,15个fov
@@ -395,6 +410,50 @@ namespace SWM
             }
             else return -14;
             return -14;
+        }
+
+        private static bool TryGetOfflineRowReferences(
+            int imageIndex,
+            int imageCount,
+            int repeat,
+            out int reference1,
+            out int reference2)
+        {
+            reference1 = -1;
+            reference2 = -1;
+            if (repeat <= 0 || imageIndex < 0 || imageIndex >= imageCount)
+                return false;
+
+            var sequence = new List<int>();
+            for (int index = imageIndex % repeat; index < imageCount; index += repeat)
+                sequence.Add(index);
+            int position = sequence.IndexOf(imageIndex);
+            if (position < 0 || sequence.Count < 3)
+                return false;
+
+            if (position == 0)
+            {
+                reference1 = sequence[1];
+                reference2 = sequence[2];
+            }
+            else if (position == sequence.Count - 1)
+            {
+                reference1 = sequence[position - 2];
+                reference2 = sequence[position - 1];
+            }
+            else
+            {
+                reference1 = sequence[position - 1];
+                reference2 = sequence[position + 1];
+            }
+
+            if (reference1 > reference2)
+            {
+                int temporary = reference1;
+                reference1 = reference2;
+                reference2 = temporary;
+            }
+            return true;
         }
         /// <summary>
         /// 动态调整每张图的参数组大小
