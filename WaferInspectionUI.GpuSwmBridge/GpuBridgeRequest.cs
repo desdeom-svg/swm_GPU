@@ -8,11 +8,20 @@ namespace SWM
     public sealed class BridgeRequest
     {
         public string RecipePath { get; set; }
+        // Optional production CameraParameters payload. When supplied, the
+        // bridge passes these bytes to SWM unchanged instead of rebuilding a
+        // partial recipe from the offline XML files.
+        public string SerializedCameraParametersPath { get; set; }
         public string ImageRoot { get; set; }
         public int ImageWidth { get; set; }
         public int ImageHeight { get; set; }
         public double DetectionMicronPerPixelX { get; set; }
         public double DetectionMicronPerPixelY { get; set; }
+        // Production planning is referenced to the machine sample centre.
+        // It is not a Recipe field, so an offline host must carry it explicitly
+        // instead of silently substituting the coordinate origin.
+        public double SampleCenterLocationX { get; set; }
+        public double SampleCenterLocationY { get; set; }
         public double RegionAlignmentOffsetX { get; set; }
         public double RegionAlignmentOffsetY { get; set; }
         public string ResponsePath { get; set; }
@@ -37,6 +46,8 @@ namespace SWM
             }
             if (!IsFinite(RegionAlignmentOffsetX) || !IsFinite(RegionAlignmentOffsetY))
                 throw new InvalidDataException("RegionAlignmentOffset values must be finite.");
+            if (!IsFinite(SampleCenterLocationX) || !IsFinite(SampleCenterLocationY))
+                throw new InvalidDataException("SampleCenterLocation values must be finite.");
             if (BrightBlackJudge < 0 || BrightBlackJudge > 2 || BackThr < 0 || DeltaBlack < 0)
                 throw new InvalidDataException("GPU inspection settings are invalid.");
         }
@@ -55,6 +66,22 @@ namespace SWM
         private static bool IsFinite(double value)
         {
             return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+    }
+
+    public static class SerializedCameraParameters
+    {
+        public static byte[] Load(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                throw new ArgumentException("Serialized camera parameters path is required.", nameof(path));
+            if (!File.Exists(path))
+                throw new FileNotFoundException("Serialized camera parameters file does not exist.", path);
+
+            byte[] bytes = File.ReadAllBytes(path);
+            if (bytes.Length == 0)
+                throw new InvalidDataException("Serialized camera parameters file is empty.");
+            return bytes;
         }
     }
 }

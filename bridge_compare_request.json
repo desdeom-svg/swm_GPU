@@ -1,0 +1,16 @@
+{
+  "RecipePath": "D:\\Projects\\opencvProject\\WaferInspectionPatternCpu\\WaferInspectionUI\\bin\\Debug\\net8.0-windows\\recipe\\0127-2x标片",
+  "ImageRoot": "D:\\images\\斯达前道\\8.18\\20260818",
+  "ImageWidth": 4096,
+  "ImageHeight": 4096,
+  "DetectionMicronPerPixelX": 2.25,
+  "DetectionMicronPerPixelY": 2.25,
+  "RegionAlignmentOffsetX": -2.0,
+  "RegionAlignmentOffsetY": 82.0,
+  "InspectionMode": "GPU",
+  "BrightBlackJudge": 0,
+  "BackThr": 0,
+  "DeltaBlack": 0,
+  "IsEnableResultImageSave": true,
+  "ResponsePath": "D:\\Projects\\opencvProject\\WaferInspectionPatternGpu\\swm\\bridge_deployed_verify.swmr"
+}

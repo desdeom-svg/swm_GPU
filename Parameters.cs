@@ -115,11 +115,22 @@ namespace SWM
             get
             {
                 List<Rectangle> padRois = new List<Rectangle>();
+                // 配方中的 PAD 框允许贴着 GoldenDie 边界，甚至稍微跨出边界。
+                // 产线的结果图按当前 die 的可见部分屏蔽；不能因为完整矩形越界
+                // 就把整块 PAD 丢弃，否则界面显示 4 框而规划只下发 2 框。
+                Rectangle dieBounds = Rectangle.FromLTRB(
+                    0,
+                    0,
+                    Math.Max(0, (int)Math.Floor(dieWidth)),
+                    Math.Max(0, (int)Math.Floor(dieHeight)));
                 foreach (Rectangle roi in Parameters.cameraParameters.Recipe.ProbeMarkRect)
                 {
-                    if ((roi.X + roi.Width) > dieWidth || (roi.Y + roi.Height) > dieHeight || roi.Width == 0 || roi.Height == 0) continue;
+                    if (roi.Width <= 0 || roi.Height <= 0) continue;
 
-                    padRois.Add(roi);
+                    Rectangle clipped = Rectangle.Intersect(roi, dieBounds);
+                    if (clipped.Width <= 0 || clipped.Height <= 0) continue;
+
+                    padRois.Add(clipped);
                 }
                 return padRois;
             }

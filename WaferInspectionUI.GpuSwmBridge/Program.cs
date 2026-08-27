@@ -35,12 +35,25 @@ namespace SWM
             }
 
             List<OfflineImageRow> layout;
-            RecipeAdapterResult adapted;
+            CameraParameters camera;
+            byte[] serialized;
             try
             {
                 layout = OfflineImageLayout.Scan(request.ImageRoot);
-                adapted = RecipeAdapter.Build(request);
-                OfflineLayoutCompatibility.AlignAndValidate(adapted.CameraParameters, layout);
+                if (!string.IsNullOrWhiteSpace(request.SerializedCameraParametersPath))
+                {
+                    serialized = SerializedCameraParameters.Load(
+                        request.SerializedCameraParametersPath);
+                    camera = DataConverter.ToObject<CameraParameters>(serialized);
+                    ValidateSerializedCameraParameters(camera, layout);
+                }
+                else
+                {
+                    RecipeAdapterResult adapted = RecipeAdapter.Build(request);
+                    OfflineLayoutCompatibility.AlignAndValidate(adapted.CameraParameters, layout);
+                    camera = adapted.CameraParameters;
+                    serialized = DataConverter.ToByteArray(camera);
+                }
             }
             catch (Exception ex)
             {
@@ -50,7 +63,7 @@ namespace SWM
             BridgeResponse response;
             try
             {
-                response = GenerateGpuParameters(adapted.CameraParameters, layout);
+                response = GenerateGpuParameters(camera, serialized, layout);
             }
             catch (Exception ex)
             {
@@ -84,10 +97,10 @@ namespace SWM
 
         private static BridgeResponse GenerateGpuParameters(
             CameraParameters camera,
+            byte[] serialized,
             IList<OfflineImageRow> layout)
         {
             var parameters = new Parameters();
-            byte[] serialized = DataConverter.ToByteArray(camera);
             List<double[]> inspectionRows = parameters.GetParam(serialized);
             if (inspectionRows.Count == 1 && inspectionRows[0].Length == 1)
                 throw new InvalidOperationException("GPU SWM GetParam failed with code " + inspectionRows[0][0]);
@@ -100,7 +113,8 @@ namespace SWM
                 OfflineImageRow layoutRow = layout[rowIndex];
                 double[] inspectionParam = inspectionRows[rowIndex];
                 int recordLength = GetPositiveInteger(inspectionParam, 15, "record length", rowIndex);
-                if (inspectionParam.Length < checked(recordLength * layoutRow.ImageCount))
+                int plannedImageCount = GetPlannedImageCount(camera, rowIndex);
+                if (inspectionParam.Length < checked(recordLength * plannedImageCount))
                     throw new InvalidDataException("GPU SWM parameter row is shorter than its image layout at row " + rowIndex);
 
                 var responseRow = new BridgeRow
@@ -111,6 +125,10 @@ namespace SWM
                 };
                 for (int imageIndex = 0; imageIndex < layoutRow.ImageCount; imageIndex++)
                 {
+                    int globalIndex = checked(imageIndex + GetPlannedImageOffset(camera, rowIndex));
+                    if (globalIndex < 0 || globalIndex >= camera.Recipe.Wafer.FovMap.Count)
+                        throw new InvalidDataException("GPU SWM FOV map is shorter than the offline image layout.");
+                    Fov fov = camera.Recipe.Wafer.FovMap[globalIndex];
                     int recordStart = checked(imageIndex * recordLength);
                     int roiCount = GetNonNegativeInteger(
                         inspectionParam,
@@ -142,12 +160,75 @@ namespace SWM
                         ReferenceImage2 = reference2,
                         // GPU Inspection ABI embeds IPROI/PAD data in InspectionParam.
                         // The CPU-only RegionParam side channel must stay empty on this route.
-                        RegionParam = Array.Empty<double>()
+                        RegionParam = Array.Empty<double>(),
+                        // OnlyDie FOVs are centred on individual Dies, while their
+                        // MapBounds have camera-FOV dimensions.  Use the die pitch
+                        // so one rendered cell is the same unit as MapImage.
+                        MapX = fov.MapBounds.X,
+                        MapY = fov.MapBounds.Y,
+                        MapWidth = fov.FovPathType == PathType.OnlyDie
+                            ? camera.Recipe.Wafer.DiePitchX
+                            : fov.MapBounds.Width,
+                        MapHeight = fov.FovPathType == PathType.OnlyDie
+                            ? camera.Recipe.Wafer.DiePitchY
+                            : fov.MapBounds.Height
                     });
                 }
                 response.Rows.Add(responseRow);
             }
             return response;
+        }
+
+        private static void ValidateSerializedCameraParameters(
+            CameraParameters camera,
+            IList<OfflineImageRow> layout)
+        {
+            if (camera == null || camera.Recipe == null || camera.Recipe.Wafer == null)
+                throw new InvalidDataException("Serialized camera parameters do not contain a recipe and wafer.");
+
+            var setting = camera.Recipe.ModeSetting as SurfaceAOISetting;
+            if (setting == null || setting.ScanSequence == null)
+                throw new InvalidDataException("Serialized camera parameters do not contain a SurfaceAOI scan sequence.");
+            if (setting.ScanSequence.Length != layout.Count)
+            {
+                throw new InvalidDataException(string.Format(
+                    "SWM planned {0} rows, but the image directory declares {1} rows.",
+                    setting.ScanSequence.Length,
+                    layout.Count));
+            }
+
+            for (int index = 0; index < layout.Count; index++)
+            {
+                int plannedImageCount = setting.ScanSequence[index].ImageCount;
+                int capturedImageCount = layout[index].ImageCount;
+                if (plannedImageCount < capturedImageCount)
+                {
+                    throw new InvalidDataException(string.Format(
+                        "Row {0} contains more captured images than the production plan: SWM={1}, images={2}.",
+                        index,
+                        plannedImageCount,
+                        capturedImageCount));
+                }
+            }
+        }
+
+        private static int GetPlannedImageCount(CameraParameters camera, int rowIndex)
+        {
+            var setting = camera.Recipe.ModeSetting as SurfaceAOISetting;
+            if (setting == null || setting.ScanSequence == null ||
+                rowIndex < 0 || rowIndex >= setting.ScanSequence.Length)
+            {
+                throw new InvalidDataException("Production scan sequence is unavailable.");
+            }
+            return setting.ScanSequence[rowIndex].ImageCount;
+        }
+
+        private static int GetPlannedImageOffset(CameraParameters camera, int rowIndex)
+        {
+            int offset = 0;
+            for (int index = 0; index < rowIndex; index++)
+                offset = checked(offset + GetPlannedImageCount(camera, index));
+            return offset;
         }
 
         private static int GetPositiveInteger(double[] values, int index, string name, int rowIndex)

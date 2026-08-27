@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using SWM;
 
@@ -24,6 +25,9 @@ namespace SWM.RegressionTests
             {
                 KeepsActiveTriggerThatCoversDownstreamImage();
                 RemovesLeafTriggerAndTransfersCoverage();
+                LoadsSerializedRecipeBytesWithoutReserialization();
+                UsesRecipePadCoordinatesWithoutGoldenDieRescaling();
+                CarriesProductionSampleCenterIntoSwmPlanning();
                 Console.WriteLine("PASS: RemoveIndexRef regression tests.");
                 return 0;
             }
@@ -88,6 +92,96 @@ namespace SWM.RegressionTests
                 "Leaf Trigger 65 must be removed after Trigger 75 takes it over.");
             Assert(inspected[65], "Transferred image 65 must be marked covered.");
             Assert(modes[75] == 1, "Trigger 75 must enable ref1 coverage.");
+        }
+
+        private static void LoadsSerializedRecipeBytesWithoutReserialization()
+        {
+            string path = Path.GetTempFileName();
+            try
+            {
+                byte[] expected = { 0, 1, 2, 255, 127 };
+                File.WriteAllBytes(path, expected);
+
+                byte[] actual = SerializedCameraParameters.Load(path);
+
+                Assert(actual.Length == expected.Length, "Serialized recipe length changed.");
+                for (int index = 0; index < expected.Length; index++)
+                    Assert(actual[index] == expected[index], "Serialized recipe bytes changed.");
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        private static void UsesRecipePadCoordinatesWithoutGoldenDieRescaling()
+        {
+            const string recipePath = @"D:\Projects\opencvProject\WaferInspectionPatternCpu\WaferInspectionUI\bin\Debug\net8.0-windows\recipe\0127-2x标片";
+            var request = new BridgeRequest
+            {
+                RecipePath = recipePath,
+                ImageRoot = recipePath,
+                ResponsePath = Path.Combine(Path.GetTempPath(), "gpu-swm-pad-regression.swmr"),
+                ImageWidth = 4096,
+                ImageHeight = 4096,
+                DetectionMicronPerPixelX = 2.25,
+                DetectionMicronPerPixelY = 2.25,
+                // Deliberately differ from the recipe to prove the bridge
+                // uses the same Recipe-backed WSTIC values as production.
+                BrightBlackJudge = 2,
+                BackThr = 17,
+                DeltaBlack = 23
+            };
+
+            RecipeAdapterResult result = RecipeAdapter.Build(request);
+            var pads = result.CameraParameters.Recipe.ProbeMarkRect;
+
+            Assert(pads.Count == 4, "0127-2x标片必须保留全部 4 个 PAD 框。");
+            AssertRect(pads[0], 485, 3, 371, 230, "PAD 0");
+            AssertRect(pads[1], 6, 4, 481, 833, "PAD 1");
+            AssertRect(pads[2], 488, 579, 383, 261, "PAD 2");
+            AssertRect(pads[3], 489, 391, 330, 61, "PAD 3");
+
+            var wafer = result.CameraParameters.Recipe.Wafer;
+            Assert(wafer.RowsCount == 1 && wafer.ColumnsCount == 1,
+                "晶圆的自定义行列数必须从 WaferPara.xml 传入生产规划。");
+            Assert(Math.Abs(wafer.DiePitchX - 1.9999904) < 1e-10 && Math.Abs(wafer.DiePitchY - 1.9999954) < 1e-10,
+                "Die Pitch 必须保留 Recipe 原始精度，不能在 Bridge 中截断到 5 位小数。actual=" +
+                wafer.DiePitchX + "," + wafer.DiePitchY);
+
+            var inspection = result.CameraParameters.Recipe.InspectionParameter as AutoReviewSystem.Data.WSTICParameters;
+            Assert(inspection != null, "0127-2x标片必须生成 WSTIC 参数。");
+            Assert(inspection.BrightBlackJudge == 0 && inspection.BackThr == 0 && inspection.DeltaBlack == 0,
+                "WSTIC GPU 参数必须来自 InspectionPara.xml，不能由测试 UI 的临时值覆盖。");
+        }
+
+        private static void CarriesProductionSampleCenterIntoSwmPlanning()
+        {
+            const string recipePath = @"D:\Projects\opencvProject\WaferInspectionPatternCpu\WaferInspectionUI\bin\Debug\net8.0-windows\recipe\0127-2x标片";
+            var request = new BridgeRequest
+            {
+                RecipePath = recipePath,
+                ImageRoot = recipePath,
+                ResponsePath = Path.Combine(Path.GetTempPath(), "gpu-swm-sample-center-regression.swmr"),
+                ImageWidth = 4096,
+                ImageHeight = 4096,
+                DetectionMicronPerPixelX = 2.2466300549176239,
+                DetectionMicronPerPixelY = 2.2466300549176239,
+                SampleCenterLocationX = -0.7945,
+                SampleCenterLocationY = -1.2014
+            };
+
+            RecipeAdapterResult result = RecipeAdapter.Build(request);
+            var actual = result.CameraParameters.Recipe.Wafer._SampleCenterLocation;
+            Assert(Math.Abs(actual.X + 0.7945) < 1e-10 && Math.Abs(actual.Y + 1.2014) < 1e-10,
+                "GPU SWM 规划不能把产线 SampleCenter 强制改为 (0,0)。actual=" + actual.X + "," + actual.Y);
+        }
+
+        private static void AssertRect(System.Drawing.Rectangle actual, int x, int y, int width, int height, string name)
+        {
+            Assert(actual.X == x && actual.Y == y && actual.Width == width && actual.Height == height,
+                name + " 坐标被 GoldenDie 倍率换算改变：actual=" + actual +
+                ", expected={X=" + x + ",Y=" + y + ",Width=" + width + ",Height=" + height + "}。");
         }
 
         private static bool InvokeRemoveIndexRef(

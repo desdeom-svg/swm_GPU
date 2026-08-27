@@ -1,0 +1,13 @@
+{
+  "RecipePath": "D:\\Projects\\opencvProject\\WaferInspectionPatternCpu\\WaferInspectionUI\\bin\\Debug\\net8.0-windows\\recipe\\0127-2x标片",
+  "ImageRoot": "D:\\images\\斯达前道\\20260818",
+  "ImageWidth": 4096,
+  "ImageHeight": 4096,
+  "DetectionMicronPerPixelX": 2.25,
+  "DetectionMicronPerPixelY": 2.25,
+  "SampleCenterLocationX": -0.7945,
+  "SampleCenterLocationY": -1.2014,
+  "RegionAlignmentOffsetX": 0,
+  "RegionAlignmentOffsetY": 0,
+  "ResponsePath": "D:\\Projects\\opencvProject\\WaferInspectionPatternGpu\\swm\\temp_swm_response.swmr"
+}

@@ -15,8 +15,8 @@
     <Compile Include="GpuBridgeRequest.cs" />
     <Compile Include="GpuRecipeAdapter.cs" />
     <Compile Include="GpuRecipeInputLoader.cs" />
-    <Compile Include="$(BridgeSharedSource)\BridgeResponseWriter.cs" Link="BridgeResponseWriter.cs" />
-    <Compile Include="$(BridgeSharedSource)\OfflineImageLayout.cs" Link="OfflineImageLayout.cs" />
+    <Compile Include="BridgeResponseWriter.cs" />
+    <Compile Include="OfflineImageLayout.cs" />
     <Compile Include="$(BridgeSharedSource)\OfflineLayoutCompatibility.cs" Link="OfflineLayoutCompatibility.cs" />
   </ItemGroup>
 

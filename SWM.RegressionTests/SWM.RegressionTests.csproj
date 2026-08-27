@@ -7,5 +7,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SWM.csproj" />
+    <ProjectReference Include="..\WaferInspectionUI.GpuSwmBridge\WaferInspectionUI.GpuSwmBridge.csproj" />
+    <Reference Include="AutoReviewSystem.Data">
+      <HintPath>..\bin\Debug\AutoReviewSystem.Data.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 </Project>

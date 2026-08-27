@@ -26,12 +26,21 @@ namespace SWM
         public double ScribeLaneY { get; set; }
         public double DieOriginX { get; set; }
         public double DieOriginY { get; set; }
+        public int CustomedStartX { get; set; }
+        public int CustomedStartY { get; set; }
+        public int CustomedRowsCount { get; set; }
+        public int CustomedColsCount { get; set; }
+        public bool IsCreateDefaultPlan { get; set; }
     }
 
     public sealed class InspectionInput
     {
         public int ImageCount { get; set; }
         public string LensMode { get; set; }
+        public string RoutePathType { get; set; }
+        public int BrightBlackJudge { get; set; }
+        public int BackThr { get; set; }
+        public int DeltaBlack { get; set; }
         public double DeltaThreshold { get; set; }
         public double ColorThreshold { get; set; }
         public int SurfaceOpen { get; set; }
@@ -92,11 +101,16 @@ namespace SWM
             ChrEdgeLoss = OptionalDouble(root, "ChrEdgeLoss", 0), DieWidth = RequiredDouble(root, "DieWidth"),
             DieHeight = RequiredDouble(root, "DieHeight"), ScribeLaneX = RequiredDouble(root, "ScribeLaneX"),
             ScribeLaneY = RequiredDouble(root, "ScribeLaneY"), DieOriginX = RequiredDouble(root, "DieOriginX"),
-            DieOriginY = RequiredDouble(root, "DieOriginY")
+            DieOriginY = RequiredDouble(root, "DieOriginY"), CustomedStartX = OptionalInt(root, "CustomedStartX", 0),
+            CustomedStartY = OptionalInt(root, "CustomedStartY", 0), CustomedRowsCount = OptionalInt(root, "CustomedRowsCount", 0),
+            CustomedColsCount = OptionalInt(root, "CustomedColsCount", 0), IsCreateDefaultPlan = OptionalBool(root, "IsCreateDefaultPlan", false)
         };
         private static InspectionInput ReadInspection(XElement root) => new InspectionInput
         {
             ImageCount = OptionalInt(root, "ImageCount", 0), LensMode = OptionalText(root, "LensMode", string.Empty),
+            RoutePathType = OptionalText(root, "RoutePathType", "MixPathType"),
+            BrightBlackJudge = OptionalInt(root, "BrightBlackJudge", 0), BackThr = OptionalInt(root, "BackThr", 0),
+            DeltaBlack = OptionalInt(root, "DeltaBlack", 0),
             DeltaThreshold = RequiredDouble(root, "DeltaThreashold"), ColorThreshold = OptionalDouble(root, "CThreashold", 90),
             SurfaceOpen = OptionalInt(root, "SurfaceOpen", 1), ContourRemoval = OptionalInt(root, "ContourRemoval", 0),
             Threshold = RequiredDouble(root, "ThreasholdValue"), ErodeValue = OptionalLong(root, "ErodeValue", 0),
