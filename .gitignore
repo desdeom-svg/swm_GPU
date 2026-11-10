@@ -1,4 +1,20 @@
-## Visual Studio
+# ====================================================================
+# SWM (GPU 晶圆扫描路径规划与参数计算核心) Git Ignore
+# ====================================================================
+
+# Visual Studio 构建产物与临时目录
+[Bb]in/
+[Oo]bj/
+build_verify/
+*.pdb
+*.ilk
+*.idb
+*.obj
+*.lib
+*.dll
+*.exe
+
+# Visual Studio 用户设置与缓存
 .vs/
 *.user
 *.userosscache
@@ -7,14 +23,25 @@
 *.sln.docstates
 *.userbuild
 
-## Build results
-[Bb]in/
-[Oo]bj/
+# 扫描结果二进制大文件与测试对比数据 (极其重要)
+*.swmr
+*.swm
+*.dump
+bridge_compare_request.json
+temp_swm_request.json
+production_compare.json
+
+# 日志输出
 [Ll]og/
 [Ll]ogs/
-build_verify/
-*.pdb
+*.log
 
-## OS generated files
+# 操作系统文件
 .DS_Store
 Thumbs.db
+
+# 智能体开发与临时记录
+.agents/
+.codex/
+.superpowers/
+scratch/
